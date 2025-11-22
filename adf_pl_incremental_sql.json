@@ -1,0 +1,432 @@
+{
+    "name": "pl_incremental",
+    "properties": {
+        "activities": [
+            {
+                "name": "Lookup_sql",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "AzureSql_ETLcontrotable",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach1",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "Lookup_sql",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Lookup_sql').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "Set_TableName",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "TableName",
+                                "value": {
+                                    "value": "@item().TableName",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_SchemaName",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "SchemaName",
+                                "value": {
+                                    "value": "@item().SchemaName",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_IsIncremental",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "IsIncremental",
+                                "value": {
+                                    "value": "@string(item().IsIncremental)",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_WaterMarkColumn",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "WatermarkColumn",
+                                "value": {
+                                    "value": "@item().WatermarkColumn",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_source_query",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "SourceQuery",
+                                "value": {
+                                    "value": "@concat(\n  'SELECT * FROM ',\n  item().SchemaName, '.', item().TableName,\n  if(equals(item().IsIncremental, 1),\n     concat(' WHERE ', item().WatermarkColumn, ' > ''', item().LastWatermarkValue, ''''),\n     '')\n)",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_Loadstatus",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "LoadStatus",
+                                "value": {
+                                    "value": "@item().LoadStatus",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_Targetpath",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "TargetPath",
+                                "value": {
+                                    "value": "@item().TargetPath",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Set_LastWatermarkValue",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "LastWatermarkvalue",
+                                "value": {
+                                    "value": "@item().LastWatermarkValue",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Switch1",
+                            "type": "Switch",
+                            "dependsOn": [
+                                {
+                                    "activity": "Set_IsIncremental",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_WaterMarkColumn",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_LastWatermarkValue",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_Targetpath",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_Loadstatus",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_source_query",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_SchemaName",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                },
+                                {
+                                    "activity": "Set_TableName",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "on": {
+                                    "value": "@string(item().IsIncremental)",
+                                    "type": "Expression"
+                                },
+                                "cases": [
+                                    {
+                                        "value": "False",
+                                        "activities": [
+                                            {
+                                                "name": "Copy_fullload",
+                                                "type": "Copy",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "source": {
+                                                        "type": "AzureSqlSource",
+                                                        "queryTimeout": "02:00:00",
+                                                        "partitionOption": "None"
+                                                    },
+                                                    "sink": {
+                                                        "type": "DelimitedTextSink",
+                                                        "storeSettings": {
+                                                            "type": "AzureBlobFSWriteSettings"
+                                                        },
+                                                        "formatSettings": {
+                                                            "type": "DelimitedTextWriteSettings",
+                                                            "quoteAllText": true,
+                                                            "fileExtension": ".txt"
+                                                        }
+                                                    },
+                                                    "enableStaging": false,
+                                                    "translator": {
+                                                        "type": "TabularTranslator",
+                                                        "typeConversion": true,
+                                                        "typeConversionSettings": {
+                                                            "allowDataTruncation": true,
+                                                            "treatBooleanAsNumber": false
+                                                        }
+                                                    }
+                                                },
+                                                "inputs": [
+                                                    {
+                                                        "referenceName": "AzureSql_source",
+                                                        "type": "DatasetReference"
+                                                    }
+                                                ],
+                                                "outputs": [
+                                                    {
+                                                        "referenceName": "sink_dataset",
+                                                        "type": "DatasetReference"
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "True",
+                                        "activities": [
+                                            {
+                                                "name": "Copy_incremental",
+                                                "type": "Copy",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "source": {
+                                                        "type": "AzureSqlSource",
+                                                        "queryTimeout": "02:00:00",
+                                                        "partitionOption": "None"
+                                                    },
+                                                    "sink": {
+                                                        "type": "DelimitedTextSink",
+                                                        "storeSettings": {
+                                                            "type": "AzureBlobFSWriteSettings"
+                                                        },
+                                                        "formatSettings": {
+                                                            "type": "DelimitedTextWriteSettings",
+                                                            "quoteAllText": true,
+                                                            "fileExtension": ".csv"
+                                                        }
+                                                    },
+                                                    "enableStaging": false,
+                                                    "translator": {
+                                                        "type": "TabularTranslator",
+                                                        "typeConversion": true,
+                                                        "typeConversionSettings": {
+                                                            "allowDataTruncation": true,
+                                                            "treatBooleanAsNumber": false
+                                                        }
+                                                    }
+                                                },
+                                                "inputs": [
+                                                    {
+                                                        "referenceName": "AzureSql_source",
+                                                        "type": "DatasetReference"
+                                                    }
+                                                ],
+                                                "outputs": [
+                                                    {
+                                                        "referenceName": "sink_dataset",
+                                                        "type": "DatasetReference"
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                "name": "Script",
+                                                "type": "Script",
+                                                "dependsOn": [
+                                                    {
+                                                        "activity": "Copy_incremental",
+                                                        "dependencyConditions": [
+                                                            "Succeeded"
+                                                        ]
+                                                    }
+                                                ],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "linkedServiceName": {
+                                                    "referenceName": "AzureSqlDatabase_linkedService",
+                                                    "type": "LinkedServiceReference"
+                                                },
+                                                "typeProperties": {
+                                                    "scripts": [
+                                                        {
+                                                            "type": "Query",
+                                                            "text": {
+                                                                "value": "@concat(\n  'UPDATE dbo.ETL_Control_Table SET ',\n  'LastWatermarkValue = (SELECT CONVERT(NVARCHAR(100), MAX(', item().WatermarkColumn, '), 120) FROM ',\n  item().SchemaName, '.', item().TableName, '), ',\n  'LastRunTime = GETDATE(), ',\n  'LoadStatus = ''Success'' ',\n  'WHERE TableName = ''', item().TableName, ''''\n)",
+                                                                "type": "Expression"
+                                                            }
+                                                        }
+                                                    ],
+                                                    "scriptBlockExecutionTimeout": "02:00:00"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "variables": {
+            "TableName": {
+                "type": "String"
+            },
+            "SchemaName": {
+                "type": "String"
+            },
+            "IsIncremental": {
+                "type": "String"
+            },
+            "WatermarkColumn": {
+                "type": "String"
+            },
+            "LoadStatus": {
+                "type": "String"
+            },
+            "TargetPath": {
+                "type": "String"
+            },
+            "LastWatermarkvalue": {
+                "type": "String"
+            },
+            "SourceQuery": {
+                "type": "String"
+            }
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-11-20T10:33:03Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

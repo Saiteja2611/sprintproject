@@ -1,0 +1,261 @@
+{
+    "name": "pl_dynamic_ingestion",
+    "properties": {
+        "activities": [
+            {
+                "name": "Bronze_rawdata",
+                "type": "GetMetadata",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "dataset": {
+                        "referenceName": "sedp_bronze_source",
+                        "type": "DatasetReference"
+                    },
+                    "fieldList": [
+                        "childItems"
+                    ],
+                    "storeSettings": {
+                        "type": "AzureBlobFSReadSettings",
+                        "recursive": true,
+                        "enablePartitionDiscovery": false
+                    },
+                    "formatSettings": {
+                        "type": "BinaryReadSettings"
+                    }
+                }
+            },
+            {
+                "name": "ForEach1",
+                "type": "ForEach",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [
+                    {
+                        "activity": "Bronze_rawdata",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('Bronze_rawdata').output.childItems",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "source_variable",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "file_type",
+                                "value": {
+                                    "value": "@split(item().name,'.')[1]",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "Switch1",
+                            "type": "Switch",
+                            "dependsOn": [
+                                {
+                                    "activity": "source_variable",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "on": {
+                                    "value": "@variables('file_type')",
+                                    "type": "Expression"
+                                },
+                                "cases": [
+                                    {
+                                        "value": "csv",
+                                        "activities": [
+                                            {
+                                                "name": "Job_csv",
+                                                "type": "DatabricksJob",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "jobId": "1064262323333112",
+                                                    "jobParameters": {
+                                                        "p_file_name": {
+                                                            "value": "@item().name",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                },
+                                                "linkedServiceName": {
+                                                    "referenceName": "AzureDatabricks1",
+                                                    "type": "LinkedServiceReference"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "json",
+                                        "activities": [
+                                            {
+                                                "name": "Job_json",
+                                                "type": "DatabricksJob",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "jobId": "626970597013428",
+                                                    "jobParameters": {
+                                                        "p_file_name": {
+                                                            "value": "@item().name",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                },
+                                                "linkedServiceName": {
+                                                    "referenceName": "AzureDatabricks1",
+                                                    "type": "LinkedServiceReference"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "ndjson",
+                                        "activities": [
+                                            {
+                                                "name": "Job_ndjson",
+                                                "type": "DatabricksJob",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "jobId": "263978007192242",
+                                                    "jobParameters": {
+                                                        "p_file_name": {
+                                                            "value": "@item().name",
+                                                            "type": "Expression"
+                                                        }
+                                                    }
+                                                },
+                                                "linkedServiceName": {
+                                                    "referenceName": "AzureDatabricks1",
+                                                    "type": "LinkedServiceReference"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "Job_silver",
+                "type": "DatabricksJob",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach1",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "jobId": "476635499986599"
+                },
+                "linkedServiceName": {
+                    "referenceName": "AzureDatabricks1",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "Job_gold",
+                "type": "DatabricksJob",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [
+                    {
+                        "activity": "Job_silver",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "jobId": "229180420812440"
+                },
+                "linkedServiceName": {
+                    "referenceName": "AzureDatabricks1",
+                    "type": "LinkedServiceReference"
+                }
+            }
+        ],
+        "variables": {
+            "file_type": {
+                "type": "String"
+            }
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-11-18T09:50:25Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}
+ 
